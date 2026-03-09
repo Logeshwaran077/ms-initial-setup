@@ -1,4 +1,8 @@
 node {
+    // 1. Define Tools and Variables
+    def mvnHome = tool name: 'maven', type: 'maven'
+    def mvnCMD = "${mvnHome}/bin/mvn"
+    
     try {
         stage('Cleanup') {
             cleanWs() 
@@ -15,26 +19,13 @@ node {
             ])
         }
 
-        stage('Deploy to GKE') {
-            sh '''
-                # 1. Authenticate
-                gcloud auth activate-service-account --key-file=$GC_KEY
-                
-                # 2. Get cluster credentials
-                gcloud container clusters get-credentials ''' + clusterName + ''' \
-                    --zone ''' + zone + ''' \
-                    --project ''' + project + '''
-                
-                # 3. Update the YAML
-                sed -i "s|IMAGE_URL|''' + fullRepoPath + '''|g" k8s/deployment.yaml
-                
-                # 4. Apply
-                kubectl apply -f k8s/deployment.yaml
-            '''
-        } // End of stage 'Deploy to GKE'
+        stage('Build') {
+            // This runs your Maven build (compiling and testing)
+            sh "${mvnCMD} clean install"
+        }
         
-    } catch (exc) { // This now correctly pairs with 'try'
+    } catch (exc) {
         echo "Pipeline failed: ${exc.message}"
         throw exc
     }
-} // End of node
+}
